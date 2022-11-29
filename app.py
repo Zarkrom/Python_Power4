@@ -11,25 +11,43 @@ from power4 import PLAYER1, PLAYER2
 """
 
 async def handler(websocket):
-    redTurn = True
-    while True:
-        # Lecture du message envoyé par le navigateur
-        async for message in websocket:
-            # A chaque tour on change de joueur
-            player = PLAYER1 if redTurn else PLAYER2
-            redTurn = not redTurn
-            event = json.loads(message)
-            assert event["type"] == "play"
-            column = event["column"]
-            # On forge un objet JSON event
+    game = Power4() # On instancie la classe Power4
+    redTurn = True # C'est le rouge qui commence
+    # Lecture du message envoyé par le navigateur
+    async for message in websocket:
+        # A chaque tour on change de joueur
+        player = PLAYER1 if redTurn else PLAYER2
+        redTurn = not redTurn
+        # On lit un evenement "play" depuis le navigateur
+        event = json.loads(message)
+        assert event["type"] == "play"
+        column = event["column"]
+        try:
+            # On joue le coup reçu
+            row = game.play(player, column)
+        except RuntimeError as exc:
+            # On a reçu un evenement "error" pour coup illégal
             event = {
-                "type": "play",
-                "player": player,
-                "column": column,
-                "row": 0, # Pour l'instant on ne sait jouer que sur la ligne du bas
+                "type": "error",
+                "message": str(exc),
             }
-            # On l'envoi au navigateur pour affichage
             await websocket.send(json.dumps(event))
+            continue
+        # On forge un evenement "play" pour afficher sur le navigateur
+        event = {
+            "type": "play",
+            "player": player,
+            "column": column,
+            "row": row,
+        }
+        await websocket.send(json.dumps(event))
+        # Si ce dernier coup est gagnant : On envoie un evenement "win"
+        if game.winner is not None:
+            event = {
+                "type": "win",
+                "player": game.winner,
+            }
+        await websocket.send(json.dumps(event))
 
 
 async def main():
