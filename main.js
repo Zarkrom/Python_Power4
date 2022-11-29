@@ -24,7 +24,35 @@ window.addEventListener("DOMContentLoaded", () => {
   const board = document.querySelector(".board");
   // Ouvrir la connexion WebSocket & enregistrer l'EventListener.
   const websocket = new WebSocket("ws://localhost:8001/");
+  receiveMoves(board, websocket);
   sendMoves(board, websocket);
   createBoard(board);
 });
+
+function showMessage(message) {
+  window.setTimeout(() => window.alert(message), 50);
+}
+
+function receiveMoves(board, websocket) {
+  websocket.addEventListener("message", ({ data }) => {
+    const event = JSON.parse(data);
+    switch (event.type) {
+      case "play":
+        // Afficher le coup joué avec playMove de connect4.js.
+        playMove(board, event.player, event.column, event.row);
+        break;
+      case "win":
+        showMessage(`Joueur ${event.player} à gagné !`);
+        // Game over ! On ferme la connexion.
+        websocket.close(1000);
+        break;
+      case "error":
+        // Afficher le message envoyé par le serveur
+        showMessage(event.message);
+        break;
+      default:
+        throw new Error(`Unsupported event type: ${event.type}.`);
+    }
+  });
+}
 
